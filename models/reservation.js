@@ -1,14 +1,13 @@
 /** Reservation for Lunchly */
 
-const moment = require("moment");
+const moment = require('moment');
 
-const db = require("../db");
-
+const db = require('../db');
 
 /** A reservation for a party */
 
 class Reservation {
-  constructor({id, customerId, numGuests, startAt, notes}) {
+  constructor({ id, customerId, numGuests, startAt, notes }) {
     this.id = id;
     this.customerId = customerId;
     this.numGuests = numGuests;
@@ -16,11 +15,24 @@ class Reservation {
     this.notes = notes;
   }
 
+  //** methods for setting/getting numGuests */
+  set numGuests(val) {
+    if (val > 0 && val === Number(val) && val === parseInt(val)) {
+      this._numGuests = val;
+    } else {
+      throw new Error('Our error is working!!!!');
+    }
+  }
+
+  get numGuests() {
+    return this._numGuests;
+  }
+
   /** methods for setting/getting startAt time */
 
   set startAt(val) {
     if (val instanceof Date && !isNaN(val)) this._startAt = val;
-    else throw new Error("Not a valid startAt.");
+    else throw new Error('Not a valid startAt.');
   }
 
   get startAt() {
@@ -57,19 +69,39 @@ class Reservation {
 
   static async getReservationsForCustomer(customerId) {
     const results = await db.query(
-          `SELECT id, 
+      `SELECT id, 
            customer_id AS "customerId", 
            num_guests AS "numGuests", 
            start_at AS "startAt", 
            notes AS "notes"
          FROM reservations 
          WHERE customer_id = $1`,
-        [customerId]
+      [customerId]
     );
 
     return results.rows.map(row => new Reservation(row));
   }
-}
 
+  /** save this reservation. */
+
+  async save() {
+    if (this.id === undefined) {
+      const result = await db.query(
+        `INSERT INTO reservations (customer_id, num_guests, start_at, notes)
+              VALUES ($1, $2, $3, $4)
+              RETURNING id`,
+        [this.customerId, this.numGuests, this.startAt, this.notes]
+      );
+      console.log('this is result.rows[0].id from save ' + this.id);
+      this.id = result.rows[0].id;
+    } else {
+      await db.query(
+        `UPDATE customers SET first_name=$1, last_name=$2, phone=$3, notes=$4)
+              WHERE id=$5`,
+        [this.firstName, this.lastName, this.phone, this.notes, this.id]
+      );
+    }
+  }
+}
 
 module.exports = Reservation;

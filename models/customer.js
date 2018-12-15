@@ -1,13 +1,13 @@
 /** Customer for Lunchly */
 
-const db = require("../db");
-const Reservation = require("./reservation");
-
+const db = require('../db');
+const Reservation = require('./reservation');
 
 /** Customer of the restaurant. */
 
 class Customer {
-  constructor({id, firstName, lastName, phone, notes}) {
+  // obj are nice b/c order does not matter - ES6 shorthand
+  constructor({ id, firstName, lastName, phone, notes }) {
     this.id = id;
     this.firstName = firstName;
     this.lastName = lastName;
@@ -35,11 +35,21 @@ class Customer {
     return this._phone;
   }
 
+  /** methods for getting/setting fullName #. */
+
+  // set fullName(firstName, lastName) {
+  //   this._fullName = firstName + ' ' + lastName || null;
+  // }
+
+  get fullName() {
+    return this.firstName + ' ' + this.lastName;
+  }
+
   /** find all customers. */
 
   static async all() {
     const results = await db.query(
-          `SELECT id, 
+      `SELECT id, 
          first_name AS "firstName",  
          last_name AS "lastName", 
          phone, 
@@ -50,27 +60,63 @@ class Customer {
     return results.rows.map(c => new Customer(c));
   }
 
+  /** find top ten customers. */
+
+  static async allTop() {
+    const results = await db.query(
+      `SELECT c.first_name AS "firstName", c.last_name AS "lastName", COUNT(c.id), c.id FROM customers c JOIN reservations r ON c.id = r.customer_id GROUP BY c.id, c.first_name, c.last_name ORDER BY COUNT(c.id) desc LIMIT 10`
+    );
+
+    return results.rows.map(c => new Customer(c));
+  }
+
   /** get a customer by ID. */
 
   static async get(id) {
     const results = await db.query(
-          `SELECT id, 
+      `SELECT id, 
          first_name AS "firstName",  
          last_name AS "lastName", 
          phone, 
          notes 
         FROM customers WHERE id = $1`,
-        [id]
+      [id]
     );
 
     const customer = results.rows[0];
-
+    // console.log('This is customer resuslts.rows[0]' + JSON.stringify(customer));
+    // console.log('this is results ' + JSON.stringify(results));
     if (customer === undefined) {
       const err = new Error(`No such customer: ${id}`);
       err.status = 404;
       throw err;
     }
+    // console.log(new Customer(customer));
+    return new Customer(customer);
+  }
 
+  /** get a customer by ID. */
+
+  static async search(firstName, lastName) {
+    const results = await db.query(
+      `SELECT id, 
+      first_name AS "firstName",  
+      last_name AS "lastName", 
+      phone, 
+      notes 
+    FROM customers WHERE first_name = $1 AND last_name = $2`,
+      [firstName, lastName]
+    );
+
+    const customer = results.rows[0];
+    // console.log('This is customer resuslts.rows[0]' + JSON.stringify(customer));
+    // console.log('this is results ' + JSON.stringify(results));
+    if (customer === undefined) {
+      const err = new Error(`No such customer: ${firstName} ${lastName}`);
+      err.status = 404;
+      throw err;
+    }
+    // console.log(new Customer(customer));
     return new Customer(customer);
   }
 
@@ -85,19 +131,20 @@ class Customer {
   async save() {
     if (this.id === undefined) {
       const result = await db.query(
-            `INSERT INTO customers (first_name, last_name, phone, notes)
+        `INSERT INTO customers (first_name, last_name, phone, notes)
              VALUES ($1, $2, $3, $4)
              RETURNING id`,
-          [this.firstName, this.lastName, this.phone, this.notes]);
+        [this.firstName, this.lastName, this.phone, this.notes]
+      );
       this.id = result.rows[0].id;
     } else {
       await db.query(
-            `UPDATE customers SET first_name=$1, last_name=$2, phone=$3, notes=$4)
+        `UPDATE customers SET first_name=$1, last_name=$2, phone=$3, notes=$4)
              WHERE id=$5`,
-          [this.firstName, this.lastName, this.phone, this.notes, this.id]);
+        [this.firstName, this.lastName, this.phone, this.notes, this.id]
+      );
     }
   }
 }
-
 
 module.exports = Customer;
